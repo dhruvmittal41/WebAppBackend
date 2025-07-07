@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: wedding-backend
+    env: node
+    buildCommand: "npm install"
+    startCommand: "node index.js" # or app.js or server.js
+    envVars:
+      - key: PORT
+        value: 10000

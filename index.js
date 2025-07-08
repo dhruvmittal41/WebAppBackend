@@ -4,18 +4,27 @@ const dotenv = require("dotenv");
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2;
-
+const app = express();
 dotenv.config();
 const allowedOrigins = [
-  'https://web-app-frontend-nine.vercel.app/', // replace with actual Vercel domain
+  "https://web-app-frontend-nine.vercel.app/",
+  "https://web-app-frontend-nine.vercel.app/blessings", // ✅ your deployed Vercel frontend
+  'http://localhost:5173' // optional: for local dev
 ];
 
-const app = express();
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST'],
-  credentials: true
+  credentials: true,
 }));
+
+
 app.use(express.json()); // ✅ To parse JSON body
 
 // 🔸 Blessings memory store (replace with DB later)

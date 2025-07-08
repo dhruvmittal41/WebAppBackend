@@ -1,4 +1,3 @@
-// index.js
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -7,22 +6,54 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2;
 
 dotenv.config();
+const allowedOrigins = [
+  'https://web-app-frontend-nine.vercel.app/', // replace with actual Vercel domain
+];
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+app.use(express.json()); // ✅ To parse JSON body
 
-// Configure Cloudinary
+// 🔸 Blessings memory store (replace with DB later)
+let blessings = [];
+
+// ✅ Blessing POST route
+app.post("/api/blessings", (req, res) => {
+  const { name, message } = req.body;
+
+  if (!name || !message) {
+    return res.status(400).json({ error: "Name and message are required" });
+  }
+
+  const blessing = {
+    name,
+    message,
+    timestamp: new Date().toISOString(),
+  };
+
+  blessings.unshift(blessing); // add to beginning (most recent first)
+  res.status(201).json(blessing);
+});
+
+// ✅ Blessing GET route
+app.get("/api/blessings", (req, res) => {
+  res.json(blessings);
+});
+
+// 🔄 Cloudinary setup (no change)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// 🟢 Use Multer AFTER setting up storage with event-aware folder
 const storage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => {
-    // req.body is NOT available yet — so we read from req.query instead
     const event = req.query.event || "Uncategorized";
     console.log("📦 Uploading to event folder:", event);
 
@@ -36,14 +67,13 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// ✅ Upload route
+// ✅ Upload image
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
   res.json(req.file);
 });
 
-
-
+// ✅ Fetch event images
 app.get("/images/:event", async (req, res) => {
   const event = req.params.event;
 
@@ -62,7 +92,6 @@ app.get("/images/:event", async (req, res) => {
   }
 });
 
-
 app.listen(5055, () => {
-  console.log("✅ Cloudinary upload server running at http://localhost:5055");
+  console.log("✅ Server running at http://localhost:5055");
 });

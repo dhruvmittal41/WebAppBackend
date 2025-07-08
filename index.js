@@ -50,14 +50,12 @@ const Blessing = mongoose.model("Blessing", blessingSchema);
 app.post("/api/blessings", async (req, res) => {
   try {
     const { name, message } = req.body;
-
     if (!name || !message) {
       return res.status(400).json({ error: "Name and message are required" });
     }
 
     const newBlessing = new Blessing({ name, message });
     const savedBlessing = await newBlessing.save();
-
     res.status(201).json(savedBlessing);
   } catch (err) {
     console.error("❌ Error saving blessing:", err);
@@ -88,9 +86,11 @@ const storage = new CloudinaryStorage({
   params: (req, file) => {
     const event = req.query.event || "Uncategorized";
     console.log("📦 Uploading to event folder:", event);
+    const filename = file.originalname.split(".")[0];
+    const timestamp = Date.now();
     return {
       folder: `wedding/private/${event}`,
-      public_id: file.originalname.split(".")[0],
+      public_id: `${filename}-${timestamp}`,
       resource_type: "image",
     };
   },
@@ -101,21 +101,25 @@ const upload = multer({ storage });
 // ✅ Upload image route
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-  res.json(req.file);
+  res.status(200).json({
+    url: req.file.path,
+    event: req.query.event,
+    message: "Upload successful",
+  });
 });
 
-// ✅ Fetch images per event
+// ✅ Fetch all images for a specific event
 app.get("/images/:event", async (req, res) => {
   const event = req.params.event;
   try {
     const result = await cloudinary.search
       .expression(`folder:wedding/private/${event}`)
       .sort_by("created_at", "desc")
-      .max_results(30)
+      .max_results(100) // fetch up to 100 images
       .execute();
 
     const urls = result.resources.map((img) => img.secure_url);
-    res.json({ images: urls });
+    res.status(200).json({ images: urls });
   } catch (err) {
     console.error("[IMAGE FETCH ERROR]", err);
     res.status(500).json({ error: "Failed to fetch images" });
@@ -123,6 +127,7 @@ app.get("/images/:event", async (req, res) => {
 });
 
 // ✅ Start server
-app.listen(5055, () => {
-  console.log("✅ Server running at http://localhost:5055");
+const PORT = process.env.PORT || 5055;
+app.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
 });

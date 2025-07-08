@@ -4,12 +4,15 @@ const dotenv = require("dotenv");
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2;
-const app = express();
+const mongoose = require("mongoose");
+
 dotenv.config();
+const app = express();
+
+// ✅ CORS
 const allowedOrigins = [
   "https://web-app-frontend-nine.vercel.app",
-  "https://web-app-frontend-nine.vercel.app/blessings", // ✅ your deployed Vercel frontend
-  'http://localhost:5173' // optional: for local dev
+  "http://localhost:5173",
 ];
 
 app.use(cors({
@@ -17,43 +20,63 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ['GET', 'POST'],
+  methods: ["GET", "POST"],
   credentials: true,
 }));
 
+app.use(express.json()); // ✅ for parsing JSON
 
-app.use(express.json()); // ✅ To parse JSON body
+// ✅ MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("✅ Connected to MongoDB"))
+.catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// 🔸 Blessings memory store (replace with DB later)
-let blessings = [];
+// ✅ Blessing schema and model
+const blessingSchema = new mongoose.Schema({
+  name: String,
+  message: String,
+  timestamp: { type: Date, default: Date.now },
+});
+
+const Blessing = mongoose.model("Blessing", blessingSchema);
 
 // ✅ Blessing POST route
-app.post("/api/blessings", (req, res) => {
-  const { name, message } = req.body;
+app.post("/api/blessings", async (req, res) => {
+  try {
+    const { name, message } = req.body;
 
-  if (!name || !message) {
-    return res.status(400).json({ error: "Name and message are required" });
+    if (!name || !message) {
+      return res.status(400).json({ error: "Name and message are required" });
+    }
+
+    const newBlessing = new Blessing({ name, message });
+    const savedBlessing = await newBlessing.save();
+
+    res.status(201).json(savedBlessing);
+  } catch (err) {
+    console.error("❌ Error saving blessing:", err);
+    res.status(500).json({ error: "Failed to save blessing" });
   }
-
-  const blessing = {
-    name,
-    message,
-    timestamp: new Date().toISOString(),
-  };
-
-  blessings.unshift(blessing); // add to beginning (most recent first)
-  res.status(201).json(blessing);
 });
 
 // ✅ Blessing GET route
-app.get("/api/blessings", (req, res) => {
-  res.json(blessings);
+app.get("/api/blessings", async (req, res) => {
+  try {
+    const blessings = await Blessing.find().sort({ timestamp: -1 });
+    res.json(blessings);
+  } catch (err) {
+    console.error("❌ Error fetching blessings:", err);
+    res.status(500).json({ error: "Failed to fetch blessings" });
+  }
 });
 
-// 🔄 Cloudinary setup (no change)
+// ✅ Cloudinary Config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -65,7 +88,6 @@ const storage = new CloudinaryStorage({
   params: (req, file) => {
     const event = req.query.event || "Uncategorized";
     console.log("📦 Uploading to event folder:", event);
-
     return {
       folder: `wedding/private/${event}`,
       public_id: file.originalname.split(".")[0],
@@ -76,16 +98,15 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// ✅ Upload image
+// ✅ Upload image route
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
   res.json(req.file);
 });
 
-// ✅ Fetch event images
+// ✅ Fetch images per event
 app.get("/images/:event", async (req, res) => {
   const event = req.params.event;
-
   try {
     const result = await cloudinary.search
       .expression(`folder:wedding/private/${event}`)
@@ -101,6 +122,7 @@ app.get("/images/:event", async (req, res) => {
   }
 });
 
+// ✅ Start server
 app.listen(5055, () => {
   console.log("✅ Server running at http://localhost:5055");
 });

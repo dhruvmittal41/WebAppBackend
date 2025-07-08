@@ -63,6 +63,11 @@ app.post("/api/blessings", async (req, res) => {
   }
 });
 
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
+
+
 // ✅ Blessing GET route
 app.get("/api/blessings", async (req, res) => {
   try {

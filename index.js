@@ -7,7 +7,7 @@ const cloudinary = require("cloudinary").v2;
 const app = express();
 dotenv.config();
 const allowedOrigins = [
-  "https://web-app-frontend-nine.vercel.app/",
+  "https://web-app-frontend-nine.vercel.app",
   "https://web-app-frontend-nine.vercel.app/blessings", // ✅ your deployed Vercel frontend
   'http://localhost:5173' // optional: for local dev
 ];
